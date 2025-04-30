@@ -6,11 +6,11 @@ import Togglable from './components/Togglable'
 import blogService from './services/blog'
 import loginService from './services/login'
 import Notification from './components/Notification'
+import blog from './services/blog'
 
 const App = () => {
   
   const [blogs, setBlogs] = useState([])
-  const [showAll, setShowAll] = useState(true)
   const [errorMessage, setErrorMessage] = useState(null)
   const [username, setUsername] = useState('') 
   const [password, setPassword] = useState('') 
@@ -18,7 +18,7 @@ const App = () => {
   const [loginVisible, setLoginVisible] = useState(false)
   
   useEffect(() => {
-    blogService.getAll().then(blogs =>
+    blogService.getAll().then((blogs) =>
       setBlogs( blogs )
     )  
   }, [])
@@ -34,14 +34,11 @@ const App = () => {
 
   const blogFormRef = useRef()
   
-  const addBlog = (blogObject) => {
-    blogFormRef.current.toggleVisibility()
-    blogService
-      .create(blogObject)
-      .then(returnedBlog => {
-        setBlogs(blogs.concat(returnedBlog))
-      })
-  }
+  const addBlog = (newBlog) => {
+    blogFormRef.current.toggleVisibility() // Hide creation form
+    blogService.create(newBlog).then(returnedBlog=>setBlogs(blogs.concat(returnedBlog)))
+  }   
+  
 
   const handleLogin = async (event) => {
     event.preventDefault()
@@ -88,32 +85,56 @@ const App = () => {
 
   const blogForm = () => (
     <Togglable buttonLabel="new blog" ref={blogFormRef} >
-       <BlogForm createBlog={addBlog} />
+       <BlogForm addBlog={addBlog} />
     </Togglable>
   )
-
+   
+  const addBlogLike = id => {
+    
+    const blogToUpdate = blogs.find(n=> n.id === id)
+    const updatedBlog  = {...blogToUpdate, likes: blogToUpdate.likes+1}
+    blogService.update(id,updatedBlog)
+    .then(returnedBlog => {
+      setBlogs(blogs.map(note => note.id !== id ? note : returnedBlog))
+    })
+    .catch(error => {
+      setErrorMessage(
+        `Note '${blog.title}' was already removed from server`
+      )
+      setTimeout(() => {
+        setErrorMessage(null)
+      }, 5000)
+    })
+    
+  }
+  
+  const blogList = () => {
+    return (
+      <ul>
+        {blogs.map(blog =>
+          <Blog
+            key={blog.id}
+            blog={blog}
+            addBlogLike={()=>addBlogLike(blog.id)}
+          />
+        )}
+      </ul>
+    )
+  }
   
 
   return (
     <div>
       <h1>Blogs</h1>
-
       <Notification message={errorMessage} />
-
       {!user && loginForm()}
       {user && <div>
         <p>{user.name} logged in</p>
         {blogForm()}
       </div>
       }
-
       <ul>
-        {blogs.map(blog =>
-          <Blog
-            key={blog.id}
-            blog={blog}
-          />
-        )}
+        {blogList()}
       </ul>
 
       
